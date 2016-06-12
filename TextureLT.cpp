@@ -21,7 +21,7 @@ RTCScene TextureLT::scene = NULL;
 float TextureLT::epsilon = 1e-2;
 std::vector<tinyobj::shape_t> TextureLT::shapes;
 std::vector<tinyobj::material_t> TextureLT::materials;
-std::vector<std::vector<cv::Vec3f> > TextureLT::texel2coords;
+std::vector<std::vector<TextureLT::SurfacePoint> > TextureLT::texel2sp;
 unsigned TextureLT::width = 0;
 
 void TextureLT::init()
@@ -80,10 +80,11 @@ inline float det(const cv::Vec2f& col1, const cv::Vec2f& col2)
     return col1[0]*col2[1] - col1[1] * col2[0];
 }
 
-void TextureLT::fill_texel2coord(const std::string& shape_name, int w, int h)
+void TextureLT::fill_texel2sp(const std::string& shape_name, int w, int h)
 {
     width = w;
-    texel2coords.resize(w*h, std::vector<cv::Vec3f>());
+    texel2sp.clear();
+    texel2sp.resize(w*h);
     for(size_t shape_index = 0; shape_index < shapes.size(); shape_index++)
     {
         if(shapes[shape_index].name != shape_name) continue;
@@ -139,8 +140,8 @@ void TextureLT::fill_texel2coord(const std::string& shape_name, int w, int h)
                     float denom = det(t01, t02);
                     float u = det(p, t02) / denom;
                     float v = det(t01, p) / denom;
-                    cv::Vec3f vert = u*v1+v*v2+(1-u-v)*v0;
-                    texel2coords[y*w+x].push_back(vert);
+                    if(!texel2sp[y*w+x].size()) // Assuming 1 to 1 mapping for now.
+                        texel2sp[y*w+x].push_back(SurfacePoint(shape_index, i, u, v));
                 }
             }
         }
@@ -164,31 +165,68 @@ bool TextureLT::visible(const cv::Vec3f& p1, const cv::Vec3f& p2)
     return shadow.geomID == RTC_INVALID_GEOMETRY_ID;
 }
 
-void TextureLT::get_light_transport_range(cv::Mat1f& lt, const cv::Vec3f& org, const cv::Vec3f& dir, int start, int end)
-{
+void TextureLT::get_light_transport_range(cv::Mat4f& lt, 
+        const cv::Vec3f& org, const cv::Vec3f& dir, int start, int end, 
+        const SurfacePoint& sp, const cv::Vec3f& ls)
+{   
     for(int index = start; index < end; index++)
     {
         bool vis = false;
         cv::Vec3f d(0, 1, 0);
-        for(int k=0; k<texel2coords[index].size(); k++)
+        cv::Vec4f& ltElem = lt.at<cv::Vec4f>(index);
+        for(int k=0; k<texel2sp[index].size(); k++)
         {
-            vis = visible(org, texel2coords[index][k]);
-            d = normalize(texel2coords[index][k] - org);
+            const SurfacePoint& tex_sp = texel2sp[index][k];
+            const cv::Vec3f& p0 = ls;
+            const cv::Vec3f& p1 = texel2sp[index][k].position;
+            const cv::Vec3f& p2 = sp.position;
+            const cv::Vec3f& p3 = org;
+            cv::Vec3f d01 = normalize(p1 - p0);
+            cv::Vec3f d12 = normalize(p2 - p1);
+            cv::Vec3f d23 = normalize(p3 - p2);
+            
+            vis = visible(p0, p1);
+            vis &= visible(p1, p2);
+            if(!vis) continue;
+            
+            float tex_diff = tex_sp.diffComp(d01, d12);
+            float tex_spec = tex_sp.specComp(d01, d12);
+            float surf_diff = sp.diffComp(d12, d23);
+            float surf_spec = sp.specComp(d12, d23);
+            
+            ltElem[0] += tex_diff*surf_diff;
+            ltElem[1] += tex_diff*surf_spec;
+            ltElem[2] += tex_spec*surf_diff;
+            ltElem[3] += tex_spec*surf_spec;
         }
-        lt.at<float>(index) = vis * powf(fabs(d.dot(dir)), 1.0f);
+        
+        
     }
 }
 
-cv::Mat1f TextureLT::get_light_transport(const cv::Vec3f& org, const cv::Vec3f& dir)
+cv::Mat4f TextureLT::get_light_transport(const cv::Vec3f& org, const cv::Vec3f& dir, const cv::Vec3f& ls)
 {
     const unsigned& w = width;
-    unsigned h = texel2coords.size() / w;
-    cv::Mat1f lt(w, h);
+    unsigned h = texel2sp.size() / w;
+    cv::Mat4f lt(w, h);
     lt.setTo(0);
     const int chunk_size = 512;
     
+    RTCRay ray;
+    ray.org[0] = org[0]; ray.org[1] = org[1]; ray.org[2] = org[2];
+    ray.dir[0] = dir[0]; ray.dir[1] = dir[1]; ray.dir[2] = dir[2];
+    ray.tnear = epsilon;
+    ray.tfar = 1e10;
+    ray.geomID = RTC_INVALID_GEOMETRY_ID;
+    ray.primID = RTC_INVALID_GEOMETRY_ID;
+    ray.mask = -1;
+    ray.time = 0;
+    rtcIntersect(scene, ray);
+    if(ray.geomID == RTC_INVALID_GEOMETRY_ID)
+        return lt;
+    SurfacePoint sp(ray.geomID, ray.primID, ray.u, ray.v);
     std::vector<LightTransportTask> tasks;
-    for(int i=0; i<texel2coords.size()/chunk_size; i++)
+    for(int i=0; i<texel2sp.size()/chunk_size; i++)
     {
         LightTransportTask task;
         task.start = i*chunk_size;
@@ -196,11 +234,14 @@ cv::Mat1f TextureLT::get_light_transport(const cv::Vec3f& org, const cv::Vec3f& 
         task.lt = &lt;
         task.org = org;
         task.dir = dir;
+        task.sp = &sp;
+        task.ls = ls;
         tasks.push_back(task);
     }
     
     Executor exec(tasks);
     tbb::parallel_for(tbb::blocked_range<size_t>(0,tasks.size()),exec);
+    cv::flip(lt, lt, 0);
     return lt;
 }
 
