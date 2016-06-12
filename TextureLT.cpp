@@ -122,7 +122,9 @@ void TextureLT::fill_texel2sp(const std::string& shape_name, int w, int h)
             
             cv::Vec2f t01 = t1 - t0;
             cv::Vec2f t02 = t2 - t0;
-            for(int x = ceil(t0[0]); x<=floor(t2[0]); x++)
+            float xe = t2[0];
+            if(floor(xe) == xe) xe -= 0.1f;
+            for(int x = ceil(t0[0]); x<=floor(xe); x++)
             {
                 float ys = (t2[1]-t0[1]) / (t2[0]-t0[0]) * (x - t0[0]) + t0[1];
                 float ye = x < t1[0] ?
@@ -130,6 +132,7 @@ void TextureLT::fill_texel2sp(const std::string& shape_name, int w, int h)
                     (t2[1]-t1[1]) / (t2[0]-t1[0]) * (x - t1[0]) + t1[1];
                 if(ys > ye)
                     std::swap(ys, ye);
+                if(floor(ye) == ye) ye -= 0.1f;
                 for(int y = ceil(ys); y <= floor(ye); y++)
                 {
                     if(x < 0 || x >= w)
@@ -140,8 +143,7 @@ void TextureLT::fill_texel2sp(const std::string& shape_name, int w, int h)
                     float denom = det(t01, t02);
                     float u = det(p, t02) / denom;
                     float v = det(t01, p) / denom;
-                    if(!texel2sp[y*w+x].size()) // Assuming 1 to 1 mapping for now.
-                        texel2sp[y*w+x].push_back(SurfacePoint(shape_index, i, u, v));
+                    texel2sp[y*w+x].push_back(SurfacePoint(shape_index, i, u, v));
                 }
             }
         }
