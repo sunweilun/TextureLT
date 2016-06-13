@@ -80,15 +80,15 @@ protected:
         }
         cv::Vec3f getDiffColor(const cv::Vec3f& wi, const cv::Vec3f& wo) const
         {
-            return cv::Vec3f(0);
+            return cv::Vec3f(0.f);
             if(matID < materials.size())
-                return diffComp(wi, wo) * materials[matID].diffuse;
+                return diffComp(wi, wo) * cv::Vec3f(materials[matID].diffuse);
         }
         cv::Vec3f getSpecColor(const cv::Vec3f& wi, const cv::Vec3f& wo) const
         {
-            return cv::Vec3f(0);
+            return cv::Vec3f(0.f);
             if(matID < materials.size())
-                return specComp(wi, wo) * materials[matID].specular;
+                return specComp(wi, wo) * cv::Vec3f(materials[matID].specular);
         }
         
     };
