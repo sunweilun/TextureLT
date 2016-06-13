@@ -78,6 +78,19 @@ protected:
                 s = materials[matID].shininess;
             return powf(d, s);
         }
+        cv::Vec3f getDiffColor(const cv::Vec3f& wi, const cv::Vec3f& wo) const
+        {
+            return cv::Vec3f(0);
+            if(matID < materials.size())
+                return diffComp(wi, wo) * materials[matID].diffuse;
+        }
+        cv::Vec3f getSpecColor(const cv::Vec3f& wi, const cv::Vec3f& wo) const
+        {
+            return cv::Vec3f(0);
+            if(matID < materials.size())
+                return specComp(wi, wo) * materials[matID].specular;
+        }
+        
     };
     
     static RTCDevice device;
