@@ -100,6 +100,14 @@ void TextureLT::fill_texel2sp(const std::string& shape_name, int w, int h)
             cv::Vec3f v0 = ((cv::Vec3f*)mesh.positions.data())[i0];
             cv::Vec3f v1 = ((cv::Vec3f*)mesh.positions.data())[i1];
             cv::Vec3f v2 = ((cv::Vec3f*)mesh.positions.data())[i2];
+            t0[0] *= w; t0[1] *= h;
+            t1[0] *= w; t1[1] *= h;
+            t2[0] *= w; t2[1] *= h;
+            
+            cv::Vec2f t01 = t1 - t0;
+            cv::Vec2f t02 = t2 - t0;
+            cv::Vec2f org_t0 = t0;
+            
             if(t0[0] > t1[0])
             {
                 std::swap(t0, t1);
@@ -116,12 +124,6 @@ void TextureLT::fill_texel2sp(const std::string& shape_name, int w, int h)
                 std::swap(v0, v1);
             }
             
-            t0[0] *= w; t0[1] *= h;
-            t1[0] *= w; t1[1] *= h;
-            t2[0] *= w; t2[1] *= h;
-            
-            cv::Vec2f t01 = t1 - t0;
-            cv::Vec2f t02 = t2 - t0;
             float xe = t2[0];
             if(floor(xe) == xe) xe -= 0.1f;
             for(int x = ceil(t0[0]); x<=floor(xe); x++)
@@ -139,7 +141,7 @@ void TextureLT::fill_texel2sp(const std::string& shape_name, int w, int h)
                         continue;
                     if(y < 0 || y >= h)
                         continue;
-                    cv::Vec2f p = cv::Vec2f(x, y) - t0;
+                    cv::Vec2f p = cv::Vec2f(x, y) - org_t0;
                     float denom = det(t01, t02);
                     float u = det(p, t02) / denom;
                     float v = det(t01, p) / denom;
@@ -201,8 +203,6 @@ void TextureLT::get_light_transport_range(cv::Mat4f& lt,
             ltElem[2] += tex_spec*surf_diff;
             ltElem[3] += tex_spec*surf_spec;
         }
-        
-        
     }
 }
 
