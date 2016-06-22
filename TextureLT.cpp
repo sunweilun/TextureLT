@@ -227,6 +227,7 @@ cv::Mat4f TextureLT::get_light_transport(const cv::Vec3f& org, const cv::Vec3f& 
     if(ray.geomID == RTC_INVALID_GEOMETRY_ID)
         return lt;
     SurfacePoint sp(ray.geomID, ray.primID, ray.u, ray.v);
+    
     std::vector<LightTransportTask> tasks;
     for(int i=0; i<texel2sp.size()/chunk_size; i++)
     {

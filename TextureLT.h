@@ -71,12 +71,13 @@ protected:
         float specComp(const cv::Vec3f& wi, const cv::Vec3f& wo) const
         {
             cv::Vec3f refl = wo - 2*normal.dot(wo)*normal;
+            float nd = -normal.dot(wi);
             float d = refl.dot(wi);
-            if(d <= 0) return 0;
+            if (nd <= 0 || d <= 0) return 0;
             float s = 50.f;
             if(matID < materials.size())
                 s = materials[matID].shininess;
-            return powf(d, s);
+            return powf(d, s) * nd;
         }
         cv::Vec3f getDiffColor(const cv::Vec3f& wi, const cv::Vec3f& wo) const
         {
