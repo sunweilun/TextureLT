@@ -193,10 +193,12 @@ void TextureLT::get_light_transport_range(cv::Mat4f& lt,
             vis &= visible(p1, p2);
             if(!vis) continue;
             
-            float tex_diff = tex_sp.diffComp(d01, d12);
-            float tex_spec = tex_sp.specComp(d01, d12);
-            float surf_diff = sp.diffComp(d12, d23);
-            float surf_spec = sp.specComp(d12, d23);
+            float r2 = (p2 - p1).dot(p2 - p1);
+            
+            float tex_diff = tex_sp.diffComp(d01, d12) / r2;
+            float tex_spec = tex_sp.specComp(d01, d12) / r2;
+            float surf_diff = sp.diffComp(d12, d23) / r2;
+            float surf_spec = sp.specComp(d12, d23) / r2;
             
             ltElem[0] += tex_diff*surf_diff;
             ltElem[1] += tex_diff*surf_spec;

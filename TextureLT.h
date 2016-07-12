@@ -59,7 +59,7 @@ protected:
             matID = -1;
             if(mesh.material_ids.size())
             {
-                matID = mesh.material_ids[i0];
+                matID = mesh.material_ids[primID];
             }
         }
         float diffComp(const cv::Vec3f& wi, const cv::Vec3f& wo) const
